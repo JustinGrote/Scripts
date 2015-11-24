@@ -1,2 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<DownloadedSamples />
+<DownloadedSamples>
+  <ScriptSample Name="Add-AD-UserGroup-to-Local-fe5e9239" LastUpdated="11/12/2015" Link="https://gallery.technet.microsoft.com/Add-AD-UserGroup-to-Local-fe5e9239" Rating="4.03125" Raters="32" Downloads="26785" Title="Add AD User/Group to Local Administrator Group" Category="Local Account Management" SubCategory="Groups" Tags="Active Directory;  Powershell;  Administrators;  " Author="Jaap Brasser" Summary="The script can use either a plain text file containing a list of computername or a computer name as input and will add the trustee (AD user or group) as an administrator to the specified computer(s).&#xD;&#xA;The script will report back errors if the account is already a member." IsAllDownloaded="true">
+    <Languages>
+      <Language Type="PowerShell" />
+    </Languages>
+    <SamplePackages>
+      <SamplePackage LastUpdated="11/24/2015" DownloadLink="https://gallery.technet.microsoft.com/Add-AD-UserGroup-to-Local-fe5e9239/file/70117/5/Set-ADAccountasLocalAdministrator.ps1" FileName="Set-ADAccountasLocalAdministrator.ps1" FileNameWithoutExtension="Set-ADAccountasLocalAdministrator" LocalPath="C:\Users\JGrote\Documents\WindowsPowerShell\Scripts\Add-AD-UserGroup-to-Local-fe5e9239\Set-ADAccountasLocalAdministrator" />
+    </SamplePackages>
+  </ScriptSample>
+</DownloadedSamples>
