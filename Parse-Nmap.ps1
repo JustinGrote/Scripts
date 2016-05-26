@@ -1,3 +1,4 @@
+#Requires -Version 3
 ####################################################################################
 #.Synopsis 
 #    Parse XML output files of the nmap port scanner (www.nmap.org). 
@@ -37,7 +38,6 @@
 #.Example 
 #    .\parse-nmap.ps1 scanfile.xml -OutputDelimiter " "
 #
-#Requires -Version 2 
 #
 #.Notes 
 #  Author: Enclave Consulting LLC, Jason Fossen (http://www.sans.org/sec505)  

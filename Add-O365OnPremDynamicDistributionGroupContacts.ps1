@@ -1,3 +1,4 @@
+#requires –version 3.0
 
 ######################################################################################################
 #                                                                                                    #
@@ -18,10 +19,9 @@
 #                                                                                                    #
 ######################################################################################################
 
-#Requires –Version 3
+
 
 $CloudCredential = Get-Credential
-Write-Host
 
 Write-Host "Getting Dynamic Distribution Groups..." -foregroundcolor white
 Set-AdServerSettings -ViewEntireForest $True

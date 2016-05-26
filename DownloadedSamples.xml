@@ -8,4 +8,12 @@
       <SamplePackage LastUpdated="11/24/2015" DownloadLink="https://gallery.technet.microsoft.com/Add-AD-UserGroup-to-Local-fe5e9239/file/70117/5/Set-ADAccountasLocalAdministrator.ps1" FileName="Set-ADAccountasLocalAdministrator.ps1" FileNameWithoutExtension="Set-ADAccountasLocalAdministrator" LocalPath="C:\Users\JGrote\Documents\WindowsPowerShell\Scripts\Add-AD-UserGroup-to-Local-fe5e9239\Set-ADAccountasLocalAdministrator" />
     </SamplePackages>
   </ScriptSample>
+  <ScriptSample Name="bd0c8d87-466f-4488-92a2-0f726cb6f4cd" LastUpdated="6/5/2013" Link="https://gallery.technet.microsoft.com/bd0c8d87-466f-4488-92a2-0f726cb6f4cd" Rating="4.8" Raters="5" Downloads="3904" Title="Send a HTML email report in a formatted table - Send-HtmlEmail" Category="Messaging &amp; Communication" SubCategory="SMTP Mail" Tags="SMTP;  Notification;  CSS;  " Author="Ben Wilkinson" Summary="This will take any Object from the PowerShell interface, convert the object (table) into HTML and then send it by email." IsAllDownloaded="true">
+    <Languages>
+      <Language Type="PowerShell" />
+    </Languages>
+    <SamplePackages>
+      <SamplePackage LastUpdated="12/14/2015" DownloadLink="https://gallery.technet.microsoft.com/bd0c8d87-466f-4488-92a2-0f726cb6f4cd/file/46904/2/Send-HTMLEmail.ps1" FileName="Send-HTMLEmail.ps1" FileNameWithoutExtension="Send-HTMLEmail" LocalPath="C:\Users\JGrote\Documents\WindowsPowerShell\Scripts\bd0c8d87-466f-4488-92a2-0f726cb6f4cd\Send-HTMLEmail" />
+    </SamplePackages>
+  </ScriptSample>
 </DownloadedSamples>

@@ -1,4 +1,4 @@
-#Requires -Version 2.0
+#Requires -Version 3.0
 
 <#
 .Synopsis 
@@ -133,15 +133,17 @@ if ($RunStatsOnly)
 }
 	
 ForEach ($file in $Path) {
-	If ($ShowProgress) { [Console]::Error.WriteLine("[" + (get-date).ToLongTimeString() + "] Starting $file" ) }
+	If ($ShowProgress) { write-progress -Activity "Parsing NMAP XML: $file" -Status "Importing XML" }
 
 	$xmldoc = new-object System.XML.XMLdocument
 	$xmldoc.Load($file)
 		
 	# Process each of the <host> nodes from the nmap report.
-	$i = 0  #Counter for <host> nodes processed.
+	$i = 1  #Counter for <host> nodes processed.
+    $itotal = @($xmldoc.nmaprun.host).count
 	$xmldoc.nmaprun.host | foreach-object { 
-		$hostnode = $_   # $hostnode is a <host> node in the XML.
+        write-progress -Activity "Parsing NMAP XML: $file" -Status "Processing Scan Entries" -CurrentOperation "Processing $i of $itotal" -PercentComplete (($i/$itotal)*100)
+        $hostnode = $PSItem   # $hostnode is a <host> node in the XML.
 		
 		# Init variables, with $entry being the custom object for each <host>. 
 		$service = " " #service needs to be a single space.
@@ -149,16 +151,15 @@ ForEach ($file in $Path) {
 
 		# Extract state element of status:
 		$entry.Status = $hostnode.status.state.Trim() 
-		if ($entry.Status.length -lt 2) { $entry.Status = "<no-status>" }
+		if ($entry.Status.length -lt 2) { $entry.Status = $null }
 
 		# Extract fully-qualified domain name(s), removing any duplicates.  
-        $hostnode.hostnames.hostname | foreach-object { $entry.FQDN += $_.name + " " } 
-		$entry.FQDN = [System.String]::Join(" ",@($entry.FQDN.Trim().Split(" ") | sort-object -unique)) #Avoid -Join and -Split for now
-		if ($entry.FQDN.Length -eq 0) { $entry.FQDN = "<no-fullname>" }
+		$entry.FQDNs = $hostnode.hostnames.hostname.name | select -Unique
+        $entry.FQDN = $entry.FQDNs | select -first 1
 
 		# Note that this code cheats, it only gets the hostname of the first FQDN if there are multiple FQDNs.
-		if ($entry.FQDN.Contains(".")) { $entry.HostName = $entry.FQDN.Substring(0,$entry.FQDN.IndexOf(".")) }
-		elseif ($entry.FQDN -eq "<no-fullname>") { $entry.HostName = "<no-hostname>" }
+		if ($entry.FQDN -eq $null) { $entry.HostName = $null }
+        elseif ($entry.FQDN -like "*.*") { $entry.HostName = $entry.FQDN.Substring(0,$entry.FQDN.IndexOf(".")) }
 		else { $entry.HostName = $entry.FQDN }
 
 		# Process each of the <address> nodes, extracting by type.
@@ -167,13 +168,13 @@ ForEach ($file in $Path) {
 			if ($_.addrtype -eq "ipv6") { $entry.IPv6 += $_.addr + " "}
 			if ($_.addrtype -eq "mac")  { $entry.MAC  += $_.addr + " "}
 		}        
-		if ($entry.IPv4 -eq $null) { $entry.IPv4 = "<no-ipv4>" } else { $entry.IPv4 = $entry.IPv4.Trim()}
-		if ($entry.IPv6 -eq $null) { $entry.IPv6 = "<no-ipv6>" } else { $entry.IPv6 = $entry.IPv6.Trim()}
-		if ($entry.MAC  -eq $null) { $entry.MAC  = "<no-mac>" }  else { $entry.MAC  = $entry.MAC.Trim() }
+		if ($entry.IPv4 -eq $null) { $entry.IPv4 = $null } else { $entry.IPv4 = $entry.IPv4.Trim()}
+		if ($entry.IPv6 -eq $null) { $entry.IPv6 = $null } else { $entry.IPv6 = $entry.IPv6.Trim()}
+		if ($entry.MAC  -eq $null) { $entry.MAC  = $null }  else { $entry.MAC  = $entry.MAC.Trim()}
 
 
 		# Process all ports from <ports><port>, and note that <port> does not contain an array if it only has one item in it.
-		if ($hostnode.ports.port -eq $null) { $entry.Ports = "<no-ports>" ; $entry.Services = "<no-services>" } 
+		if ($hostnode.ports.port -eq $null) { $entry.Ports = $null ; $entry.Services = $null } 
 		else 
 		{
 			$entry.Ports = @()
@@ -184,17 +185,17 @@ ForEach ($file in $Path) {
                 if ($_.state.state -like "open*" -and ($_.service.tunnel.length -gt 2 -or $_.service.product.length -gt 2 -or $_.service.proto.length -gt 2)) { $entry.Services += $_.protocol + ":" + $_.portid + ":" + $service + ":" + ($_.service.product + " " + $_.service.version + " " + $_.service.tunnel + " " + $_.service.proto + " " + $_.service.rpcnum).Trim() + " <" + ([Int] $_.service.conf * 10) + "%-confidence>$OutputDelimiter" }
 			}
 			$entry.Ports = $entry.Ports.Trim()
-            if ($entry.Services -eq $null) { $entry.Services = "<no-services>" } else { $entry.Services = $entry.Services.Trim() }
+            if ($entry.Services -eq $null) { $entry.Services = $null } else { $entry.Services = $entry.Services.Trim() }
 		}
 
 
 		# If there is 100% Accuracy OS, show it 
-        $CertainOS = $hostnode.os.osmatch | where {$_.accuracy -eq 100}
+        $CertainOS = $hostnode.os.osmatch | where {$_.accuracy -eq 100} | select -first 1
         if ($CertainOS) {$Entry.OS = $certainOS.name} else {$Entry.OS=$null}
 		$entry.BestGuessOS = ($hostnode.os.osmatch | select -first 1).name
         $entry.BestGuessOSPercent = ($hostnode.os.osmatch | select -first 1).accuracy
         $entry.OSGuesses = $hostnode.os.osmatch
-		#if ($entry.OSGuesses.count -lt 1) { $entry.OS = "<no-os>" }
+		if ($entry.OSGuesses.count -lt 1) { $entry.OS = $null }
 
             
         # Extract script output, first for port scripts, then for host scripts.
@@ -210,13 +211,9 @@ ForEach ($file in $Path) {
             }
         }
             
-        if ($entry.Script -eq $null) { $entry.Script = "<no-script>" } 
-    
-    
-		# Emit custom object from script.
+        if ($entry.Script -eq $null) { $entry.Script = $null } 
 		$i++  #Progress counter...
-		new-object PSObject -property $entry
+		[PSCustomObject]$entry
 	}
 
-	If ($ShowProgress) { [Console]::Error.WriteLine("[" + (get-date).ToLongTimeString() + "] Finished $file, processed $i entries." ) }
 }

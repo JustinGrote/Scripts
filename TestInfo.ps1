@@ -1,0 +1,41 @@
+
+<#PSScriptInfo
+
+.VERSION 0.5
+
+.GUID 9f75a09c-d08f-4905-8bed-9432f012e4a8
+
+.AUTHOR Justin Grote <justin@grote.name>
+
+.COMPANYNAME 
+
+.COPYRIGHT 
+
+.TAGS 
+
+.LICENSEURI 
+
+.PROJECTURI 
+
+.ICONURI 
+
+.EXTERNALMODULEDEPENDENCIES 
+
+.REQUIREDSCRIPTS 
+
+.EXTERNALSCRIPTDEPENDENCIES 
+
+.RELEASENOTES
+Initial Upload
+
+#>
+
+<# 
+
+.DESCRIPTION 
+ Parses NMAP Output into Powershell Objects 
+
+#> 
+Param()
+
+
