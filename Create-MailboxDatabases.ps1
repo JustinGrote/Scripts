@@ -1,13 +1,9 @@
-﻿Add-PSSnapin "Microsoft.Exchange.Management.PowerShell.E2010"
+﻿#Add-PSSnapin "Microsoft.Exchange.Management.PowerShell.E2010"
 
 <#
 .SYNOPSIS
 Creates mailbox databases in batch based on a CSV file. Useful for setting up DAGs across multiple servers
 #>
-
-[CmdletBinding(SupportsShouldProcess)]
-
-$mdbCSV = import-csv ToyotaTestLayout.csv
 
 #region Includes
 function Write-VerboseProgress
@@ -31,11 +27,9 @@ function Write-VerboseProgress
         [int]$PercentComplete,
         [int]$SecondsRemaining,
         [int]$SourceID
-
     )
 
     write-progress @PSBoundParameters
-
 
     #TODO: Make this cleaner so it looks more like log lines you would expect.
     [String]$VerboseMessage = ""
@@ -52,46 +46,63 @@ function Write-VerboseProgress
 
 #region Main
 
-foreach ($mdbItem in $mdbCSV) {
-    $ProgressParams = @{
-        Activity = "Creating Mailbox Databases from CSV"
-        Status = "Creating" + $mdbItem.DatabaseName
-        ID = 1
-    }
-    Write-VerboseProgress @ProgressParams
+function Create-MailboxDatabases {
 
-    $MDBPath = $mdbItem.DatabaseDrive + "\" + $mdbItem.ParentDatabaseFolder + "\" + $mdbItem.DatabaseName + ".edb"
-    $MDBLogPath = $mdbItem.TransactionLogDrive + "\" + $mdbItem.ParentLogFolder + "\" + $mdbItem.DatabaseName + "_LOG"
-    
-    #Create the Mailbox Database Folder
-    $MDBParentPath = split-path $MDBPath -parent
-    Write-VerboseProgress @ProgressParams -CurrentOperation "Creating Mailbox Directory $MDBParentPath"
-    if (test-path $MDBParentPath) {
-        write-warning "$MDBParentPath exists, skipping..."
-    } else {
-        try {
-            $mkdirResult = mkdir $MDBParentPath
-            if ($mkdirResult -isnot [System.IO.DirectoryInfo]) {throw "mkdir $MDBParentPath Failed"}
-        } catch {
-            throw $Error[0]
+    [CmdletBinding(SupportsShouldProcess)]
+    param (
+        $mdbCSV = (import-csv $home/desktop/SimpleTest.csv)
+    )
+
+    $commonParams = @{}
+
+    #Pass thru common parameters to important commands
+    if ($PSBoundParameters.whatif) {$commonParams.whatif = $PSBoundParameters.whatif}
+    if ($PSBoundParameters.verbose) {$commonParams.verbose = $PSBoundParameters.verbose}
+    if ($PSBoundParameters.errorAction) {$commonParams.errorAction = $PSBoundParameters.errorAction}
+
+
+    foreach ($mdbItem in $mdbCSV) {
+        $ProgressParams = @{
+            Activity = "Creating Mailbox Databases from CSV"
+            Status = "Creating" + $mdbItem.DatabaseName
+            ID = 1
         }
-    }
+        Write-VerboseProgress @ProgressParams
 
-    #Create the Mailbox Database Log Folder
-    $MDBLogParentPath = split-path $MDBLogPath -parent
-    Write-VerboseProgress @ProgressParams -CurrentOperation "Creating Mailbox Log Directory $MDBLogParentPath"
-    if (test-path $MDBLogParentPath) {
-        write-warning "$MDBLogParentPath exists, skipping..."
-    } else {
-        try {
-            $mkdirResult = mkdir $MDBLogParentPath
-            if ($mkdirResult -isnot [System.IO.DirectoryInfo]) {throw "mkdir $MDBLogParentPath Failed"}
-        } catch {
-            throw $Error[0]
+        ###Get the full list of servers and create the folders remotely. Assumes you have admin rights to the servers.
+
+        $ServerName 
+        $MDBRelativePath = $mdbItem.ParentDatabaseFolder + "\" + $mdbItem.DatabaseName + ".edb"
+        $MDBRelativeLogPath = $mdbItem.ParentLogFolder + "\" + $mdbItem.DatabaseName + "_LOG"
+
+    
+        #Create the Mailbox Database Folder
+        $MDBParentPath = split-path $MDBPath -parent
+        Write-VerboseProgress @ProgressParams -CurrentOperation "Creating Mailbox Directory $MDBParentPath"
+        if (test-path $MDBParentPath) {
+            write-warning "$MDBParentPath exists, skipping..."
+        } else {
+            try {
+                $mkdirResult = mkdir $MDBParentPath -whatif:($PSBoundParameters.whatif) -ErrorAction stop
+            } catch {
+                throw $Error[0]
+            }
+        }
+
+        #Create the Mailbox Database Log Folder
+        $MDBLogParentPath = split-path $MDBLogPath -parent
+        Write-VerboseProgress @ProgressParams -CurrentOperation "Creating Mailbox Log Directory $MDBLogParentPath"
+        if (test-path $MDBLogParentPath) {
+            write-warning "$MDBLogParentPath exists, skipping..."
+        } else {
+            try {
+                $mkdirResult = mkdir @CommonParams -Name $MDBLogParentPath 
+            } catch {
+                throw $Error[0]
+            }
         }
     }
 }
-
 
 
 #endregion Main
