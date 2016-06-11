@@ -4,7 +4,7 @@
 .SYNOPSIS
 Creates mailbox databases in batch based on a CSV file. Useful for setting up DAGs across multiple servers.
 .DESCRIPTION
-This script was designed to aid in the creation of large amounts of mailbox databases and copies (20+). 
+This script was designed to aid in the creation of large amounts of mailbox databases and copies (20+) with custom activation preferences
 It is specifically designed to be very safe, fully supporting -whatif and requiring confirmation for every step unless approved otherwise
 Numerous sanity checks, progress, and verbose logging are also implemented
 It is also designed to be resumable such that if you enounter an error, you can clean it up, and run the script again to skip everything up to your most recent action
@@ -12,7 +12,34 @@ It is also designed to be resumable such that if you enounter an error, you can 
 Justin Grote <justingrote+powershell@gmail.com>
 .NOTES
 Tested on Exchange 2016, should work fine on 2013
+
+.EXAMPLE
+New-ExchangeMailboxDatabasesFromCSV.ps1 -exchangeServer myserver.example.com -mdbCSVPath C:\Temp\mytest.csv -whatif -verbose
+Don't make any changes but show everything that would occur.
+
+.EXAMPLE
+New-ExchangeMailboxDatabasesFromCSV.ps1 -exchangeServer myserver.example.com -mdbCSVPath C:\Temp\mytest.csv -verbose -confirm:$true
+Start the database creation process and ask you to confirm "yes" before every change to the environment
+
+.EXAMPLE
+New-ExchangeMailboxDatabasesFromCSV.ps1
+
+Here is an example CSV contant you can use, just cut and paste the content below (without the begin and end lines) into a file and save as mytest.csv, and edit to suit your environment
+
+###BEGIN CSV###
+DatabaseName,TransactionLogDrive,DatabaseDrive,ParentLogFolder,ParentDatabaseFolder,PrimaryServer,DagReplicaServers,ActivationPrefs
+TESTDB01,D,E,TESTDB01,TESTDB01,TESTMAIL03,"TESTMAIL04,TESTMAIL01,TESTMAIL02","2,3,4"
+TESTDB02,D,F,TESTDB02,TESTDB02,TESTMAIL04,"TESTMAIL03,TESTMAIL01,TESTMAIL02","2,4,3"
+###END CSV###
+
 #>
+[CmdletBinding()]
+param(
+    #Path to the CSV file containing your database layout. See get-help -examples for a sample format.
+    [Parameter(Mandatory)][String]$mdbCSVPath,
+    #FQDN of one of your exchange servers. This is used for Remote Powershell commands
+    [Parameter(Mandatory)][String]$exchangeServer
+)
 
 #region Includes
 function Write-VerboseProgress {
