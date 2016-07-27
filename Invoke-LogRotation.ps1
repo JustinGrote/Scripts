@@ -1,4 +1,4 @@
-﻿<#Windows PowerShell Code####################################################### 
+﻿<#
  .SYNOPSIS  
     Archive Log Files: Manually specify any folder(s) or automatically parse IIS  
     log file folders, group by day/month and archive them with 7-Zip. Verify 
@@ -34,51 +34,84 @@
     credit to the creator owner, and you agree that the creator owner has no  
     warranty, obligations, or liability for such use.  
  
-.NOTES  
-    File Name  : compress-remove-logs.ps1  
-    Version    : 2.4.4 
-    Date       : 20160526 
+.NOTES 
+    ModifiedBy : Justin Grote justingrote+powershell(at)gmail(dot)com
+    Requires   : PowerShell V2, V3 or V4 
+
+    *ORIGINAL AUTHOR INFORMATION*
+    ForkedFrom : 2.4.4
     Author     : Bernie Salvaggio 
     Email      : BernieSalvaggio(at)gmail(dot)com 
     Twitter    : @BernieSalvaggio 
     Website    : http://www.BernieSalvaggio.com/ 
-    Requires   : PowerShell V2, V3 or V4 
-  
-###############################################################################> 
+    
+#>
+[CmdletBinding(DefaultParameterSetName="Default")]
 
+#region Parameters
+param (
+    #Path to the directory you wish to examine
+    [Parameter(ValueFromPipeline,ValueFromPipelineByPropertyName)]
+    [Alias("FullName")]
+    [String[]]$Path,
+
+    #Automatically find IIS folders 
+    [Switch]$AutoDiscoverIISLogs,
+
+    #Perform the action in subfolders of the specified paths as well
+    [Switch]$Recurse,
+
+    #Saves the script results to a file if specified
+    [Switch]$LogResults,
+
+    #Path to a location to log results of this script. Make sure this script has permissions to write here
+    [String]$LogFile = "$env:temp\LogRotation-$(get-date -format yyyymmdd-hhmmss).log",
+
+    #Send an email report. You have the option of receiving error notifications via email and/or writing them to a log file.
+    [Parameter(ParameterSetName="SendEmail")][Switch]$SendEmailReport,
+
+    # Determines when the script should email you
+    # both -> Email on both success and failure 
+    # failure -> Only email on failure 
+    # never -> Don't send any emails from this script (not recommended, see above) 
+    # Note: A "failure" could be a hard failure, e.g., can't find the path to 7-Zip, 
+    #       or a soft failure, e.g., no files found to archive in a specified path 
+    [Parameter(ParameterSetName="SendEmail")]
+    [ValidateSet("both","failure","never")]
+    [String]$MailMessageDetermination = "never",
+
+    #Destination email address(es)
+    [Parameter(ParameterSetName="SendEmail",Mandatory)][String[]]$To,
+
+    #IP address or hostname of your SMTP Server. Defaults to localhost
+    [Parameter(ParameterSetName="SendEmail")][String]$SmtpServer = 'localhost',
+    
+
+    #Email address you want specified in the "FROM" portion of the email
+    [Parameter(ParameterSetName="SendEmail")][String]$From = "InvokeLogRotation@$((Get-WmiObject win32_computersystem).DNSHostName+'.'+(Get-WmiObject win32_computersystem).Domain)",
+
+    #Subject of the mail you wish to send
+    [Parameter(ParameterSetName="SendEmail")][String]$Subject = "$($env:computername): Log Rotation Script Results $(get-date -format 'yyyy/mm/dd hh:mm:ss')"
+)
+#endregion Parameters
 
 # Build the base pieces for emailing results 
 $ServerName = gc env:computername 
 $SmtpClient = new-object system.net.mail.smtpClient 
 $MailMessage = New-Object system.net.mail.mailmessage 
 $MailMessage.Body = "" 
- 
-################################################################################ 
-####################### BEGIN USER CONFIGURABLE SETTINGS ####################### 
- 
+
 # Mail server settings. Change according to your environment. 
 # You have the option of receiving error notifications via email and/or writing  
 # them to a log file. The settings for determining when you receive emails 
 # and if a logfile is used are the next two after these email server settings 
 $SmtpClient.Host = "192.168.1.2" 
-$MailMessage.from = ($ServerName + "@yourdomain.com") 
-$MailMessage.To.add("username@yourdomain.com") 
-$MailMessage.Subject = $ServerName + " Log File Archive Results" 
- 
-# When should this script email you? 
-# both -> Email on both success and failure 
-# failure -> Only email on failure 
-# never -> Don't send any emails from this script (not recommended, see above) 
-# Note: A "failure" could be a hard failure, e.g., can't find the path to 7-Zip, 
-#       or a soft failure, e.g., no files found to archive in a specified path 
-$MailMessageDetermination = "both" 
- 
-# Path to logfile - Make sure this script has permissions to write here 
-# Set to "" if you don't want to use a log file 
-$Logfile = "C:\temp\LogfileArchiving-Log.txt" 
- 
+$MailMessage.from = $From
+$MailMessage.To = $To
+$MailMessage.Subject = $Subject
+
 # Folder for the temp file that stores the list of files for 7-Zip to archive 
-$TempFolder = "C:\temp" 
+$TempFolder = $env:temp
  
 # Path to the 7-Zip executable 
 # Note: 7z.dll must also be in this folder for 7-Zip to work 
@@ -99,7 +132,7 @@ $PPMdRAM = "128"
 # all actions as normal but DOES NOT delete the original files you're archiving 
 # Note: Test mode should be run from the command line to see the results of the  
 # -WhatIf operations - email messaging is not altered for test mode 
-$TestMode = $true 
+$TestMode = $PSBoundParameters['WhatIf']
  
 # If you would like to automatically remove the archives that this script creates,  
 # set the following to true and then define how old the archives should be (in  
@@ -139,7 +172,7 @@ $ArchiveStorage = "C:\ArchiveStorage"
 # $true:  Use the Web Administration (IIS) provider to automatically archive  
 #          log files for all IIS sites. Requires IIS 7 or 7.5 
 # $false: Manually specify target log file folder(s) (in the next section) 
-$UseWebAdministrationSnapIn = $true 
+$UseWebAdministrationSnapIn = $AutoDiscoverIISLogs 
  
 <#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 The following settings are ONLY used if you set $UseWebAdministrationSnapIn 
@@ -156,17 +189,19 @@ if (!$UseWebAdministrationSnapIn) {
     $Targets = @() 
     # The folder(s) (targets) you want to archive 
     # Duplicate the following four lines for each target you want to archive 
-    $Properties = @{ArchiveTargetName="Site 1";  
-                    ArchiveTargetFolder="C:\inetpub\logs\LogFiles\W3SVC1\"} # Don't forget the trailing \  
+    $Properties = @{ArchiveTargetName="UserSpecifiedPath";  
+                    ArchiveTargetFolder=($Path + "\")
+    } # Don't forget the trailing \  
     $Newobject = New-Object PSObject -Property $Properties 
     $Targets += $Newobject 
 } 
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
  
 ################################################################################ 
 ######################## END USER CONFIGURABLE SETTINGS ######################## 
 ################################################################################ 
- 
+
 function Send-Email { 
     switch ($MailMessageDetermination) { 
         both { $SmtpClient.Send($MailMessage); break } 

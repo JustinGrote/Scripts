@@ -4,8 +4,8 @@ param(
     [string]$ComputerName = "localhost",
     [int]$MaxEvents=($MAXEVENTSDEFAULT=100),
     [switch]$LogonOnly,
-    [date]$Before,
-    [date]$After,
+    [datetime]$Before,
+    [datetime]$After,
     [switch]$Brief
 
 )
@@ -49,3 +49,5 @@ if ($brief) {$results = $results | ft -AutoSize computer,username,sourceip,"Even
 return $results
 
 } #Get-RDSSessionHistory
+
+Get-RDSSessionHistory
