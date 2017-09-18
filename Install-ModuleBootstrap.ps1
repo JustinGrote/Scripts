@@ -40,7 +40,6 @@ param (
     [switch]$AddToPSModulesPath
 )
 
-begin {
     #If we are in Azure Functions, initialize HOME environment variable and ~ so path resolves correctly
     if ($EXECUTION_CONTEXT_FUNCTIONDIRECTORY) {
         (get-psprovider 'FileSystem').Home = $EXECUTION_CONTEXT_FUNCTIONDIRECTORY
@@ -92,9 +91,7 @@ begin {
         #Download NuGet if it does not already exist
         if(-not (Test-Path $NugetPath)) { Invoke-WebRequest -uri 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile $NugetPath }        
     }
-}
 
-process {
     foreach ($moduleNameItem in $Name) {
         "Installing Module $moduleNameItem!"
 
@@ -109,4 +106,3 @@ process {
             } 
         #>
     }
-}
