@@ -7,7 +7,7 @@ function Expand-WinEvent {
     .DESCRIPTION
     Convert eventRecords into a more parseable object format, including custom event properties
     By expanding the Event XML data into individual properties, this makes WinEvents easier to work with and parse
-     
+
     .NOTES
     Inspired by http://blogs.technet.com/b/ashleymcglone/archive/2013/08/28/powershell-get-winevent-xml-madness-getting-details-from-event-logs.aspx
 
@@ -58,8 +58,8 @@ function Expand-WinEvent {
                         $PropertyName = "Property" + $i
                         $EventProperties.Add($PropertyName,$PSItem)
                         $i++
-                    } 
-                    
+                    }
+
                     else {
                         if ($EventProperties.Contains($PSItem.Name)) {
                             $PropertyName = "property" + $PSItem.Name
@@ -68,10 +68,10 @@ function Expand-WinEvent {
                     }
                 } #If ($PSItem)
             } #ForEach
-            
+
             if ($OutHashTable) {
                 $EventProperties
-            } 
+            }
             else {
                 $result = [PSCustomObject]$EventProperties
                 #Assign custom type so it shows properly in Get-Member

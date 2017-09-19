@@ -17,5 +17,13 @@
             "args": [],
             "cwd": "${file}"
         }
+        {
+            "name": "PowerShell Args",
+            "type": "PowerShell",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-devicename $home/desktop/remainingdevices.txt"],
+            "cwd": "${file}"
+        },
     ]
 }

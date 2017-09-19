@@ -12,7 +12,7 @@ process { foreach ($computer in $computerName) {
     [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
     $req = [Net.HttpWebRequest]::Create("https://$computer`:$port/")
     $req.Timeout = $Timeoutms
-    try {$req.GetResponse() | Out-Null} catch {write-error "Couldn't connect to $computer on port $port"; continue}
+    try {$req.GetResponse() | Out-Null} catch {write-error "Couldn't connect to $computer on port $port - $($error[0].exception.message)"; continue}
     if (!($req.ServicePoint.Certificate)) {write-error "No Certificate returned on $computer"; continue}
     $certinfo = $req.ServicePoint.Certificate
 
