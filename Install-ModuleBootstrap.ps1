@@ -15,6 +15,10 @@ Install-ModuleBootstrap.ps1
 Installs PSDeploy to your default CurrentUser modules directory
 
 .EXAMPLE
+Invoke-Command -ArgumentList "PSDepoy" -ScriptBlock ([scriptblock]::Create((new-object net.webclient).DownloadString('http://tinyurl.com/PSIMB'))) -ArgumentList "Pester"
+Bootstraps this script from a URL. Useful for Azure Functions
+
+.EXAMPLE
 Install-ModuleBootstrap.ps1 -Name "Pester" -Path "~\MyCustomModuleFolder" -AddToPSModulesPath
 Installs Pester to your custom module folder and adds it to the PSModulesPath for autoloading (this session only). The folder must already exist.
 
@@ -74,6 +78,7 @@ param (
 
     # Bootstrap nuget if we don't have it
     if(-not ($NugetPath = (Get-Command 'nuget.exe' -ErrorAction SilentlyContinue).Path)) {
+
         #If we are in Azure Functions, set NuGetPath to the App Service tools directory
         #Otherwise try TEMP, then USERPROFILE, then the path argument, then currentdirectory as a last resort
         if ($EXECUTION_CONTEXT_FUNCTIONNAME -and $Tools) {
@@ -89,20 +94,21 @@ param (
         }
         
         #Download NuGet if it does not already exist
-        if(-not (Test-Path $NugetPath)) { Invoke-WebRequest -uri 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile $NugetPath }        
+        if(-not (Test-Path $NugetPath)) { 
+            write-verbose "Nuget.exe not found, downlaoding to $NugetPath..."
+            Invoke-WebRequest -uri 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile $NugetPath -verbose 
+        }
     }
 
     foreach ($moduleNameItem in $Name) {
         "Installing Module $moduleNameItem!"
+        $NugetParams = 'install', "$moduleNameItem", '-Source', 'https://www.powershellgallery.com/api/v2/',
+                       '-ExcludeVersion', '-NonInteractive', '-Verbosity', 'quiet', '-OutputDirectory', $Path
+        & $NugetPath @NugetParams
 
-        <#TODO: Snippet for importing data later
-            if ($AddToPSModulesPath -and $Import) {
-                $env:PSModulePath = ($Path + ";" + $env:PSModulePath)
-                import-module $Path -Force
-            } elseif ($AddToPSModulesPath) {
-                $env:PSModulePath = ($Path + ";" + $env:PSModulePath)
-            } else ($Import) {
-                import-module $Path -Force
-            } 
-        #>
+        #If the module is PSDepend, go ahead and copy nuget.exe into the module directory as it will be required
+        if ($moduleNameItem -match 'PSDepend') {
+            copy-item $NugetPath $Path\$moduleNameItem -force
+        }
     }
+
