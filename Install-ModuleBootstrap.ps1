@@ -23,12 +23,12 @@ Bootstraps this script from a URL. Useful for Azure Functions
 param (
     #Name of the module on PowershellGallery. Defaults to PSDepend if nothing specified.
     [Parameter(ValueFromPipeline=$true)][string[]]$Name = "PSDepend",
-    #Path to save the module. Defaults to currentuser default module directory
-    [string]$Path = "$([environment]::getfolderpath("mydocuments"))\WindowsPowershell\Modules",
     #Force overwriting the module if it already exists. By default we don't do this for speed.
     [switch]$Force,
     #Add the path to the PSModulesPath user environment variable if it doesn't exist. Generates a warning otherwise.
-    [switch]$AddToPSModulesPath
+    [switch]$AddToPSModulesPath,
+    #Path to save the module. Defaults to currentuser default module directory
+    [string]$Path = "$([environment]::getfolderpath("mydocuments"))\WindowsPowershell\Modules"
 )
 
 #If we are in Azure Functions, initialize HOME environment variable and ~ so path resolves correctly
