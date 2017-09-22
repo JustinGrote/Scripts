@@ -83,7 +83,7 @@ if(-not ($NugetPath = (Get-Command 'nuget.exe' -ErrorAction SilentlyContinue).Pa
     
     #Download NuGet if it does not already exist
     if(-not (Test-Path $NugetPath)) { 
-        write-verbose "Nuget.exe not found, downlaoding to $NugetPath..."
+        write-verbose "Nuget.exe not found, downloading to $NugetPath..."
         Invoke-WebRequest -uri 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile $NugetPath
     }
 }
