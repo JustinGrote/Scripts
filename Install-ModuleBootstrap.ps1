@@ -91,7 +91,7 @@ if(-not ($NugetPath = (Get-Command 'nuget.exe' -ErrorAction SilentlyContinue).Pa
 foreach ($moduleNameItem in $Name) {
     if ( (-not (test-path (join-path $Path $ModuleNameItem))) -or ($Force) ) {
         write-verbose "Installing Module $moduleNameItem to $Path"
-        #if ($PSCmdlet.ShouldProcess( (join-path $path $moduleNameItem), "Install Powershell Module $moduleNameItem via nuget.exe")) {
+        if ($PSCmdlet.ShouldProcess( (join-path $path $moduleNameItem), "Install Powershell Module $moduleNameItem via nuget.exe")) {
             $NugetParams = 'install', "$moduleNameItem", '-Source', 'https://www.powershellgallery.com/api/v2/',
                             '-ExcludeVersion', '-NonInteractive', '-Verbosity', 'quiet', '-OutputDirectory', $Path
             & $NugetPath @NugetParams | write-verbose
@@ -100,7 +100,7 @@ foreach ($moduleNameItem in $Name) {
             if ($moduleNameItem -match 'PSDepend') {
                 copy-item $NugetPath $Path\$moduleNameItem -force | out-string | write-verbose
             }
-        #}
+        }
     } else {
         write-verbose "Module $moduleNameItem already exists at $Path and -Force not specified, skipping..."
     }
