@@ -11,8 +11,8 @@ param (
     [Parameter(Mandatory)]$notifyEmail,
     #The API key and credential of an AWS user with at least IAM:Listroles privileges
     $Credential = (Get-Credential -Message "Enter the API Key and Secret of an AWS User with at least IAM:ListRoles privileges. This will be saved in the application and used to discover AWS Roles"),
-    #How long an AWS session will last before requiring another login, in seconds. Maximum is 43200
-    $awsSessionTime = 43200
+    #How long an AWS session will last before requiring another login, in seconds. Default is 1 hour. Maximum is 43200
+    $awsSessionTime = 3600
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,6 +20,7 @@ $ErrorActionPreference = 'Stop'
 #This script automates the process in this article: 
 #https://docs.microsoft.com/en-us/azure/active-directory/saas-apps/amazon-web-service-tutorial 
 
+"" #Newline
 write-host -nonewline -f Cyan "Creating AWS Enterprise App $(if ($Name) {"named $Name"})..."
 $awsapp = Get-AzPortalGalleryApp "Amazon Web Services" | Add-AzPortalGalleryApp -Name $Name
 if ($awsApp) {
@@ -51,7 +52,7 @@ $awsSAMLProfile = @"
         "version": 1,
         "defaultTokenType": "SAML",
         "allowPassThruUsers": "true",
-        "includeBasicClaimSet": "true",
+        "includeBasicClaimSet": "false",
         "claimsSchema": [
             {
                 "samlClaimType": "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
@@ -143,8 +144,8 @@ Invoke-AzPortalRequest "ApplicationSso/$AwsAppObjectID" "FederatedSsoConfigV2" -
 Invoke-AzPortalRequest "ApplicationSso/$AwsAppObjectID" "FederatedSsoClaimsPolicyV2" -method POST -body $awsSAMLProfile > $null
 write-host -f Green "OK!"
 
-write-host -f Cyan "Sleeping for 10 seconds before enabling SingleSignOn"
-sleep 10
+write-host -f Cyan "Sleeping for 10 seconds before enabling SAML Federation"
+sleep 15
 
 write-host -n -f Cyan "Enabling SAML Federation..."
 Invoke-AZPortalRequest "ApplicationSso/$AwsAppObjectID" "SingleSignOn" -method POST -body '{"currentSingleSignOnMode":"federated","signInUrl":null}' > $null
@@ -152,49 +153,13 @@ write-host -f Green "OK!"
 
 write-host -n -f Cyan "Validating AWS Provisioning Credentials work and have at least IAM:ListRoles privilege..."
 
-$credTestRequest = @"
-    {
-        "galleryApplicationId": "8b1025e4-1dd2-430b-a150-2ef79cd700f5",
-        "templateId": "aws",
-        "fieldValues": {
-            "clientsecret": "$($awsCred.username)",
-            "secrettoken": "$($awsCred.GetNetworkCredential().password)"
-        },
-        "fieldConfigurations": {
-            "clientsecret": {
-                "defaultHelpText": null,
-                "defaultLabel": null,
-                "defaultValue": null,
-                "hidden": false,
-                "name": "clientsecret",
-                "optional": false,
-                "readOnly": false,
-                "secret": true,
-                "validationRegEx": null,
-                "extendedProperties": null
-            },
-            "secrettoken": {
-                "defaultHelpText": null,
-                "defaultLabel": null,
-                "defaultValue": null,
-                "hidden": false,
-                "name": "secrettoken",
-                "optional": false,
-                "readOnly": false,
-                "secret": true,
-                "validationRegEx": null,
-                "extendedProperties": null
-            }
-        },
-        "oAuthEnabled": false,
-        "oAuth2AuthorizeUrl": null,
-        "notificationEmail": null,
-        "sendNotificationEmails": false,
-        "galleryApplicationKey": "aws",
-        "synchronizationLearnMoreIbizaFwLink": "",
-        "syncAll": false
+$credTestRequest = ConvertTo-Json -Depth 9 @{
+    templateId = 'aws'
+    fieldValues = @{
+        clientsecret = $Credential.username
+        secrettoken = $Credential.GetNetworkCredential().password
     }
-"@
+}
 
 $credTestResult = Invoke-AZPortalRequest "UserProvisioning/$AwsAppObjectID/$AwsAppId" "validateCredentials/false" -method POST -body $credTestRequest
 if ($credTestResult.success) {
@@ -203,6 +168,61 @@ if ($credTestResult.success) {
     throw $credTestResult.localizedErrorMessage
 }
 
-write-host -f Cyan -n "Saving Provisioning Settings"
+write-host -f Cyan -n "Saving Provisioning Settings..."
 
-write-host -f Cyan -n "Enabling Provisioning (Sync AWS IAM Roles with Application Roles)"
+$provisionTaskResult = Invoke-AzPortalRequest "UserProvisioning/$AwsAppObjectID" "ProvisioningTasks" -method POST -body (ConvertTo-Json @{templateID='aws'})
+
+$provisioningSettings = @"
+{
+    "galleryApplicationId": "8b1025e4-1dd2-430b-a150-2ef79cd700f5",
+    "templateId": "aws",
+    "fieldValues": {
+        "clientsecret": "$($Credential.username)",
+        "secrettoken": "$($Credential.GetNetworkCredential().password)"
+    },
+    "fieldConfigurations": {
+        "clientsecret": {
+            "defaultHelpText": null,
+            "defaultLabel": null,
+            "defaultValue": null,
+            "hidden": false,
+            "name": "clientsecret",
+            "optional": false,
+            "readOnly": false,
+            "secret": true,
+            "validationRegEx": null,
+            "extendedProperties": null
+        },
+        "secrettoken": {
+            "defaultHelpText": null,
+            "defaultLabel": null,
+            "defaultValue": null,
+            "hidden": false,
+            "name": "secrettoken",
+            "optional": false,
+            "readOnly": false,
+            "secret": true,
+            "validationRegEx": null,
+            "extendedProperties": null
+        }
+    },
+    "oAuthEnabled": false,
+    "oAuth2AuthorizeUrl": null,
+    "notificationEmail": "$notifyEmail",
+    "sendNotificationEmails": true,
+    "galleryApplicationKey": "aws",
+    "synchronizationLearnMoreIbizaFwLink": "",
+    "syncAll": false
+}
+"@
+Invoke-AZPortalRequest "UserProvisioning/$AwsAppObjectID" "Credentials" -method PUT -body $provisioningSettings > $null
+write-host -f Green "OK!"
+
+$wait = read-host "Configure your AWS Provider now before starting provisioning, then press Enter"
+write-host -f Cyan -n "Starting AWS IAM Role Sync..."
+Invoke-AZPortalRequest "UserProvisioning/$AwsAppObjectID" "start" -method POST > $null
+write-host -f Green "OK!"
+
+write-host -f Green "Setup Successful! Next Steps:"
+write-host "1. Associate users to AWS Roles in the app"
+write-host "2. Test Login"
