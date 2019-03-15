@@ -1,6 +1,5 @@
 #Requires -Version 3.0
 
-
 #region Includes
 function ConvertFrom-UnixTimestamp{
     param (
@@ -121,6 +120,7 @@ function ConvertFrom-NmapXml {
                         VerboseLevel = $nmaprun.verbose.level
                         DebugLevel = $nmaprun.verbose.level
                         ServicesScanned = $nmapRunServices
+                        RawXML = $nmaprun
                     })
                 } #nmaprunservices = foreach
 
@@ -164,7 +164,8 @@ function ConvertFrom-NmapXml {
 		        if ($hostnode.ports.port -eq $null) { $entry.Ports = $null ; $entry.Services = $null } 
 		        else 
 		        {
-			        $entry.Ports = @()
+                    $entry.Ports = @()
+                    
                     $hostnode.ports.port | foreach-object {
 				        if ($_.service.name -eq $null) { $service = "unknown" } else { $service = $_.service.name } 
                         $entry.Ports += [ordered]@{
@@ -178,8 +179,9 @@ function ConvertFrom-NmapXml {
                         if ($_.state.state -like "open*" -and ($_.service.tunnel.length -gt 2 -or $_.service.product.length -gt 2 -or $_.service.proto.length -gt 2)) { $entry.Services += $_.protocol + ":" + $_.portid + ":" + $service + ":" + ($_.service.product + " " + $_.service.version + " " + $_.service.tunnel + " " + $_.service.proto + " " + $_.service.rpcnum).Trim() + " <" + ([Int] $_.service.conf * 10) + "%-confidence>$OutputDelimiter" }
 			        }
                     if ($entry.Services -eq $null) { $entry.Services = $null } else { $entry.Services = $entry.Services.Trim() }
+                    #Provide a nicer ToString Output
+                    $entry.Ports | Add-Member -MemberType ScriptMethod -Name ToString -Force -Value {$this.protocol,$this.port -join ':'}
 		        }
-
 
 		        # If there is 100% Accuracy OS, show it 
                 $CertainOS = $hostnode.os.osmatch | where {$_.accuracy -eq 100} | select -first 1
@@ -191,6 +193,7 @@ function ConvertFrom-NmapXml {
 
             
                 # Extract script output, first for port scripts, then for host scripts.
+                $entry.Script = $null
                 $hostnode.ports.port | foreach-object {
                     if ($_.script -ne $null) { 
                         $entry.Script += "<PortScript id=""" + $_.script.id + """>$OutputDelimiter" + ($_.script.output -replace "`n","$OutputDelimiter") + "$OutputDelimiter</PortScript> $OutputDelimiter $OutputDelimiter" 
@@ -202,14 +205,57 @@ function ConvertFrom-NmapXml {
                         $entry.Script += '<HostScript id="' + $_.id + '">' + $OutputDelimiter + ($_.output.replace("`n","$OutputDelimiter")) + "$OutputDelimiter</HostScript> $OutputDelimiter $OutputDelimiter" 
                     }
                 }
-            
-                if ($entry.Script -eq $null) { $entry.Script = $null } 
 		        $i++  #Progress counter...
 		        [PSCustomObject]$entry
 	        }
             }
     }
 }
-#$nmapxml = [xml](& nmap -T5 -O --osscan-guess -oX - tinygod www.google.com)
-#$testresult = $nmapxml | convertFrom-NmapXML
-#$testresult
+
+function Invoke-NMAP {
+    [CmdletBinding(DefaultParameterSetName="default")]
+    param (
+        #A list of nmap host specifications
+        [String[]][Parameter(Position=0,ParameterSetName="Default",ValueFromPipeline)]$computerName = "localhost",
+        #A list of SNMP communities to scan. Defaults to public and private
+        [String[]][Parameter(ParameterSetName="Default")]$snmpCommunityList = @("private","public"),
+        #Specify this if you want the raw (non-Powershell-formatted) NMAP Output
+        [Switch]$Raw,
+        #Override the default nmap parameters
+        $ArgumentList = @(
+            "--open",
+            "-T4",
+            "-O"
+        )
+    )
+
+    if ($snmpCommunityList) {
+        $snmpCommunityFile = [io.path]::GetTempFileName()
+        $snmpCommunityList > $snmpCommunityFile
+        $argumentList += '--script','snmp-brute','--script-args',"snmpbrute.communitiesdb=$snmpCommunityFile"
+    }
+    $nmapexe = 'nmap.exe'
+
+    if (-not $Raw) {
+        $ArgumentList += "-oX","-"
+    }
+
+    $nmapresult = & $nmapexe $argumentList $computerName
+
+    if (-not $nmapResult) {throw "NMAP did not produce any output. Please review any errors that are present above this warning."}
+    if ($Raw) {
+        $nmapResult
+    } else {
+        [xml]$nmapresult | ConvertFrom-NmapXML
+    }
+}
+
+#Run the last function in this file unless this script is dotsourced, using any arguments provided
+if ($myinvocation.Line -notmatch '^\. ') {
+    $command = 'beginblock','processblock','endblock' | foreach {
+        $myInvocation.mycommand.scriptblock.ast.$PSItem.statements
+    } | Where-Object {$PSItem -is [Management.Automation.Language.FunctionDefinitionAst]} | % name | select -last 1
+    $myargs = $myinvocation.UnboundArguments
+    [ScriptBlock]$invokeScriptBlock = [Scriptblock]::Create("$command $myargs")
+    invoke-command $invokeScriptBlock
+}
